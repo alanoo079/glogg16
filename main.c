@@ -7,7 +7,7 @@
     ADD/AND/XOR imm |  opcode   |  dest  | source | 1|  value       |
     LD/ST/LEA       |  opcode   |  reg   |        offset            |
     LDR/STR         |  opcode   |  reg   |  base  |     offset6     |
-    BR              |  opcode   | flags  |  reg   |     offset6     |
+    BRR             |  opcode   | flags  |  reg   |     offset6     |
     JMP             |  opcode   | 0  0  0|  base  | 0  0  0  0  0  0|
     RET             |  opcode   | 0  0  0  0|        unused         |
     SET             |  opcode   |  dest  |       (-256 to 255)      |
@@ -16,18 +16,19 @@
     Opcodes:
         0 NOP // done
         1 ADD // done
-        2 AND
-        3 XOR
-        4 LD
-        5 LDR
-        6 ST
-        7 STR
-        8 LEA
-        9 BR
-        10 JMP
-        11 RET
+        2 AND // done
+        3 XOR // done
+        4 LD // done
+        5 LDR // done
+        6 ST // done
+        7 STR // done
+        8 LEA // done
+        9 BRR // done
+        10 JMP // done
+        11 RET // done
         12 SET // done
-        13-14 spare
+        13 BUSH
+        14 BOP
         15 GLÖGG // done
 
         GLÖGG 0: halt
@@ -58,12 +59,13 @@ enum {
     ST,
     STR,
     LEA,
-    BR,
+    BRR,
     JMP,
     RET,
     SET,
     GLÖGG = 15,
-    RGLÖGG = 7
+    RGLÖGG = 7,
+    RBASE = 6
 };
 
 typedef struct {
@@ -73,7 +75,7 @@ typedef struct {
 
 Register registers[8] = {
     {"R0", 0}, {"R1", 0}, {"R2", 0}, {"R3", 0},
-    {"R4", 0}, {"R5", 0}, {"R6", 0}, {"RGLÖGG", 0}
+    {"R4", 0}, {"R5", 0}, {"RBASE", 0}, {"RGLÖGG", 0}
 };
 
 uint16_t sign_extension(uint16_t value, int bits) {
@@ -93,22 +95,28 @@ uint16_t get_bits(uint16_t value, int high, int low) {
 
 int main(void) {
     uint16_t program[] = {
-        0xce47, // SET RGLÖGG, #G
-        0xf100, // GLÖGG 1
-        0xce4c, //SET RGLÖGG, #L
-        0xf100, // GLÖGG 1
-        0xcec3, // SET RGLÖGG, #Ö, first byte
-        0xf100, // GLÖGG 1
-        0xce96, // SET RGLÖGG, #Ö, second byte
-        0xf100, // GLÖGG 1
-        0xce47, // SET RGLÖGG, #G
-        0xf100, // GLÖGG 1
-        0xce47, // SET RGLÖGG, #G
-        0xf100, // GLÖGG 1
-        0xce0a, // SET RGLÖGG, #0x0a
-        0xf100, // GLÖGG 1
-        0xce00, // SET RGLÖGG #0
-        0xf200, // GLÖGG 2
+        // main
+        0x820f, //  0: LEA R1, +15
+        0x8c01, //  1: LEA RBASE, +1
+        0x9e07, //  2: BRR nzp, R0, +7
+        0xce0a, //  3: SET RGLÖGG, #0x0a
+        0xf100, //  4: GLÖGG 1
+        0x8403, //  5: LEA R2, +3
+        0xa080, //  6: JMP R2
+        0xce58, //  7: SET RGLÖGG, #X
+        0xf100, //  8: GLÖGG 1
+        0xf000, //  9: GLÖGG 0
+ 
+        // print_string func
+        0x5e40, // 10: LDR RGLÖGG, R1, 0
+        0x95c3, // 11: BRR z, RGLÖGG, +3
+        0xf100, // 12: GLÖGG 1
+        0x1261, // 13: ADD R1, R1, #1
+        0x9ffb, // 14: BRR nzp, RGLÖGG, -5
+        0xb000, // 15: RET
+ 
+        // data, addr 16-25
+        0x0a, 'g', 'l', 0xc3, 0xb6, 'g', 'g', '1', '6', 0x0a
     };
 
     uint16_t *memory = calloc(65536, sizeof(uint16_t));
@@ -147,6 +155,103 @@ int main(void) {
                     registers[dest].value = registers[src].value + registers[src2].value;
                 }
                 //printf("%d\n", registers[dest].value);
+                break;
+            }
+            case AND: {
+                uint16_t dest = get_bits(ins_reg, 11, 9);
+                uint16_t src = get_bits(ins_reg, 8, 6);
+                uint16_t bit5 = get_bits(ins_reg, 5, 5);
+ 
+                if (bit5) {
+                    uint16_t number = sign_extension(get_bits(ins_reg, 4, 0), 5);
+                    registers[dest].value = registers[src].value & number;
+                } else {
+                    uint16_t src2 = get_bits(ins_reg, 2, 0);
+                    registers[dest].value = registers[src].value & registers[src2].value;
+                }
+                break;
+            }
+            case XOR: {
+                uint16_t dest = get_bits(ins_reg, 11, 9);
+                uint16_t src = get_bits(ins_reg, 8, 6);
+                uint16_t bit5 = get_bits(ins_reg, 5, 5);
+ 
+                if (bit5) {
+                    uint16_t number = sign_extension(get_bits(ins_reg, 4, 0), 5);
+                    registers[dest].value = registers[src].value ^ number;
+                } else {
+                    uint16_t src2 = get_bits(ins_reg, 2, 0);
+                    registers[dest].value = registers[src].value ^ registers[src2].value;
+                }
+                break;
+            }
+            case LD: {
+                uint16_t dest = get_bits(ins_reg, 11, 9);
+                uint16_t aa = sign_extension(get_bits(ins_reg, 8, 0), 9);
+                uint16_t address = pc + aa;
+                registers[dest].value = memory[address];
+                break;
+            }
+            case ST: {
+                uint16_t src = get_bits(ins_reg, 11, 9);
+                uint16_t aa = sign_extension(get_bits(ins_reg, 8, 0), 9);
+                uint16_t address = pc + aa;
+                memory[address] = registers[src].value;
+                break;
+            }
+            case LDR: {
+                uint16_t dest = get_bits(ins_reg, 11, 9);
+                uint16_t base = get_bits(ins_reg, 8, 6);
+                uint16_t aa = sign_extension(get_bits(ins_reg, 5, 0), 6);
+                uint16_t address = registers[base].value + aa;
+                registers[dest].value = memory[address];
+                break;
+            }
+            case STR: {
+                uint16_t src = get_bits(ins_reg, 11, 9);
+                uint16_t base = get_bits(ins_reg, 8, 6);
+                uint16_t aa = sign_extension(get_bits(ins_reg, 5, 0), 6);
+                uint16_t address = registers[base].value + aa;
+                memory[address] = registers[src].value;
+                break;
+            }
+            case LEA: {
+                uint16_t dest = get_bits(ins_reg, 11, 9);
+                uint16_t offset = sign_extension(get_bits(ins_reg, 8, 0), 9);
+                registers[dest].value = pc + offset;
+                break;
+            }
+            case BRR: {
+                uint16_t flags = get_bits(ins_reg, 11, 9);
+                uint16_t reg = get_bits(ins_reg, 8, 6);
+                uint16_t offset = sign_extension(get_bits(ins_reg, 5, 0), 6);
+ 
+                bool want_negative = get_bits(flags, 2, 2);
+                bool want_zero = get_bits(flags, 1, 1);
+                bool want_positive = get_bits(flags, 0, 0);
+ 
+                bool jump = false;
+                if ((int16_t)registers[reg].value < 0 && want_negative) {
+                    jump = true;
+                } else if ((int16_t)registers[reg].value == 0 && want_zero) {
+                    jump = true;
+                } else if ((int16_t)registers[reg].value > 0 && want_positive) {
+                    jump = true;
+                }
+
+                if (jump) {
+                    pc = pc + offset;
+                }
+
+                break;
+            }
+            case JMP: {
+                uint16_t base = get_bits(ins_reg, 8, 6);
+                pc = registers[base].value;
+                break;
+            }
+            case RET: {
+                pc = registers[RBASE].value;
                 break;
             }
             case SET: {
