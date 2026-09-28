@@ -79,9 +79,9 @@ int main(int argc, char **argv) {
  
     FILE *out = NULL;
     if (binary) {
-        out = fopen("glögg16.bin", "wb");
+        out = fopen("build/glögg16.bin", "wb");
         if (!out) {
-            perror("glögg16.bin");
+            perror("build/glögg16.bin");
             fclose(f);
             return 1;
         }

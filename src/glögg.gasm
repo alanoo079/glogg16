@@ -4,7 +4,7 @@ SET RGLÖGG, #'I'
 GLÖGG 1
 SET RGLÖGG, #0x20
 GLÖGG 1
-SET RGLÖGG, #'L'
+SET RGLÖGG, #'L' ; test
 GLÖGG 1
 SET RGLÖGG, #'o'
 GLÖGG 1

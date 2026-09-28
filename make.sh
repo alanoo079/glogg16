@@ -1,7 +1,7 @@
 #/bin/bash
 
-gcc vm.c -o vm
-gcc assembler.c -o assembler
+gcc src/vm.c -o build/vm
+gcc src/assembler.c -o build/assembler
 
-./assembler -b a.gasm
-./vm glögg16.bin
+build/assembler -b src/glögg.gasm
+build/vm build/glögg16.bin
