@@ -93,38 +93,27 @@ uint16_t get_bits(uint16_t value, int high, int low) {
     return abow;
 }
 
-int main(void) {
-    uint16_t program[] = {
-        // main
-        0x820f, //  0: LEA R1, +15
-        0x8c01, //  1: LEA RBASE, +1
-        0x9e07, //  2: BRR nzp, R0, +7
-        0xce0a, //  3: SET RGLÖGG, #0x0a
-        0xf100, //  4: GLÖGG 1
-        0x8403, //  5: LEA R2, +3
-        0xa080, //  6: JMP R2
-        0xce58, //  7: SET RGLÖGG, #X
-        0xf100, //  8: GLÖGG 1
-        0xf000, //  9: GLÖGG 0
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s glögg16.bin\n", argv[0]);
+        return 1;
+    }
  
-        // print_string func
-        0x5e40, // 10: LDR RGLÖGG, R1, 0
-        0x95c3, // 11: BRR z, RGLÖGG, +3
-        0xf100, // 12: GLÖGG 1
-        0x1261, // 13: ADD R1, R1, #1
-        0x9ffb, // 14: BRR nzp, RGLÖGG, -5
-        0xb000, // 15: RET
+    FILE *file = fopen(argv[1], "rb");
+    if (!file) {
+        perror(argv[1]);
+        return 1;
+    }
  
-        // data, addr 16-25
-        0x0a, 'g', 'l', 0xc3, 0xb6, 'g', 'g', '1', '6', 0x0a
-    };
-
     uint16_t *memory = calloc(65536, sizeof(uint16_t));
 
-    for (size_t i = 0; i < sizeof(program)/2; i++) {
-        memory[i] = program[i];
-        //printf("%x\n", memory[i]);
+    size_t i = 0;
+    int high, low;
+    while ((high = fgetc(file)) != EOF) {
+        low = fgetc(file);
+        memory[i++] = (uint16_t)((high << 8) | low);
     }
+    fclose(file);
 
     uint16_t pc = 0;
     bool running = true;
