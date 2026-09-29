@@ -52,4 +52,5 @@ comes with a vm and assembler wowowowow
         GLÖGG 0: halt
         GLÖGG 1: print char in RGLÖGG
         GLÖGG 2: exit with status code in RGLÖGG
+        GLÖGG 3: getchar from user into RGLÖGG
 ```

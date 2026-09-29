@@ -363,8 +363,8 @@ int main(int argc, char **argv) {
                 char *number_text = strtok(NULL, " ,\t\r\n");
                 long glögg = strtol(number_text, NULL, 0);
 
-                if (!(glögg == 0 || glögg == 1 || glögg == 2)) {
-                    fprintf(stderr, "line %d: glögg number must be 0, 1 or 2\n", line_number);
+                if (!(glögg == 0 || glögg == 1 || glögg == 2 || glögg == 3)) {
+                    fprintf(stderr, "line %d: glögg number must be 0, 1, 2 or 3\n", line_number);
                     return 1;
                 }
 
