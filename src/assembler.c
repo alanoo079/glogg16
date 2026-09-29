@@ -11,23 +11,42 @@ void setup() {
 }
 
 enum {
+    // opcodes
     NOP, // done
     ADD, // done
-    AND,
-    XOR,
-    LD,
-    LDR,
-    ST,
-    STR,
-    LEA,
-    BRR,
-    JMP,
-    RET, // done
+    AND, // done
+    XOR, // done
+    LD, // done
+    LDR, // done
+    ST, // done
+    STR, // done
+    LEA, // done
+    BRR, // done
+    JMP, // done
+    SHIFT,
     SET, // done
-    GLÖGG = 15, // done
+    BUSH,
+    BOP,
+    GLÖGG, // done
+
+    // alias
+    RET = 16,
+
+    // special registers
     RGLÖGG = 7,
     RBASE = 6
 };
+
+/*
+    glögg 16 assembler
+
+    assembler aliases:
+    - RET == JMP RBASE
+    - 
+
+
+
+*/
 
 int parse_opcode(const char *name) {
     if (strcmp(name, "NOP") == 0) {
@@ -38,6 +57,24 @@ int parse_opcode(const char *name) {
         return SET;
     } else if (strcmp(name, "ADD") == 0) {
         return ADD;
+    } else if (strcmp(name, "AND") == 0) {
+        return AND;
+    } else if (strcmp(name, "XOR") == 0) {
+        return XOR;
+    } else if (strcmp(name, "JMP") == 0) {
+        return JMP;
+    } else if (strcmp(name, "LD") == 0) {
+        return LD;
+    } else if (strcmp(name, "ST") == 0) {
+        return ST;
+    } else if (strcmp(name, "LEA") == 0) {
+        return LEA;
+    } else if (strcmp(name, "LDR") == 0) {
+        return LDR;
+    } else if (strcmp(name, "STR") == 0) {
+        return STR;
+    } else if (strcmp(name, "BRR") == 0) {
+        return BRR;
     } else if (strcmp(name, "GLÖGG") == 0) {
         return GLÖGG;
     }
@@ -88,6 +125,7 @@ int main(int argc, char **argv) {
     }
     char line[256];
     int line_number = 0;
+    int address = 0;
 
     while (fgets(line, sizeof line, f)) {
         line_number++;
@@ -98,6 +136,56 @@ int main(int argc, char **argv) {
         if (op == NULL || op[0] == ';') // empty line or comment
             continue;
 
+        // data 0x32: 0x0a, 'g', 12, -1
+        // pad NOP up to that address
+        if (strcmp(op, "data") == 0) {
+            char *addr_text = strtok(NULL, " ,\t\r\n");
+            long start = strtol(addr_text, NULL, 0);
+
+            if (start < address) {
+                printf("%d program already reaches %ld, it goes up to %d", line_number, start, address);
+                return 1;
+            }
+
+            while (address < start) {
+                if (binary) {
+                    uint8_t bytes[2] = {0x00, 0x00};
+                    fwrite(bytes, 1, 2, out);
+                } else {
+                    printf("0x0000,\n");
+                }
+                address++;
+            }
+
+            char *value = strtok(NULL, " ,\t\r\n");
+            if (value != NULL && value[0] == ':') {
+                value = strtok(NULL, " ,\t\r\n");
+            }
+
+            while (value != NULL && value[0] != ';') { // stop at a comment
+                long number;
+                if (value[0] == '\'') // a character
+                    number = (unsigned char)value[1];
+                else
+                    number = strtol(value, NULL, 0);  // 10, -5, 0x0a
+
+                uint16_t word = number & 0xffff;
+                if (binary) {
+                    uint8_t bytes[2] = {
+                        (uint8_t)(word >> 8),
+                        (uint8_t)(word & 0xff)
+                    };
+                    fwrite(bytes, 1, 2, out);
+                } else {
+                    printf("0x%04x,\n", word);
+                }
+                address++;
+
+                value = strtok(NULL, " ,\t\r\n");
+            }
+            continue;
+        }
+
         uint16_t ins;
 
         switch (parse_opcode(op)) {
@@ -105,8 +193,17 @@ int main(int argc, char **argv) {
                 ins = 0x0000;
                 break;
             case RET:
-                ins = 0xb000;
+                ins = 0xa180;
                 break;
+            case JMP: {
+                // JMP r0
+                char *registe = strtok(NULL, " ,\t\r\n");
+                int reg = parse_reg(registe);
+                ins = (JMP << 12) | (reg << 6);
+                break;
+            }
+            case AND:
+            case XOR:
             case ADD: {
                 // ADD R1, R1, #1
                 // ADD R1, R1, R2
@@ -122,7 +219,7 @@ int main(int argc, char **argv) {
                 if (src2 != -1) {
                     //printf("%d\n", src2);
                     // ADD/AND/XOR reg |  opcode   |  dest  | source | 0| 0  0| source2|
-                    ins = (ADD << 12) | (dest << 9) | (src << 6) | (0x0 << 2) | (src2);
+                    ins = (parse_opcode(op) << 12) | (dest << 9) | (src << 6) | (0x0 << 2) | (src2);
                     break;
                 } else {
                     long number;
@@ -132,7 +229,7 @@ int main(int argc, char **argv) {
                         number = (unsigned char)value[1];
                     else 
                         number = strtol(value, NULL, 0);  // 10, -5, 0x0a  
-                    ins = (ADD << 12) | (dest << 9) | (src << 6) | (1 << 5) | (number & 0x1f);
+                    ins = (parse_opcode(op) << 12) | (dest << 9) | (src << 6) | (1 << 5) | (number & 0x1f);
                     break;
                 }
                 break;
@@ -165,6 +262,103 @@ int main(int argc, char **argv) {
                 ins = (SET << 12) | (dest << 9) | (number & 0x1ff);
                 break;
             }
+            case LEA:
+            case ST:
+            case LD: {
+                // LD  R1, #5    R1 = memory[pc + 5]
+                char *registe = strtok(NULL, " ,\t\r\n");
+                char *value = strtok(NULL, " ,\t\r\n");
+ 
+                int reg = parse_reg(registe);
+ 
+                long offset;
+                if (value[0] == '#') // skip
+                    value++;
+                if (value[0] == '\'') // a character
+                    offset = (unsigned char)value[1];
+                else
+                    offset = strtol(value, NULL, 0);  // 10, -5, 0x0a
+ 
+                if (offset < -256 || offset > 255) {
+                    fprintf(stderr, "line %d: offset %ld does not fit (-256 to 255)\n", line_number, offset);
+                    return 1;
+                }
+ 
+                // LD/ST/LEA |  opcode   |  reg   |        offset9           |
+                ins = (parse_opcode(op) << 12) | (reg << 9) | (offset & 0x1ff);
+                break;
+            }
+            case LDR:
+            case STR: {
+                // LDR R1, R2, #0    R1 = memory[R2 + 0]
+                // STR R1, R2, #-1   memory[R2 - 1] = R1
+                char *register1 = strtok(NULL, " ,\t\r\n");
+                char *register2 = strtok(NULL, " ,\t\r\n");
+                char *value = strtok(NULL, " ,\t\r\n");
+ 
+                int reg = parse_reg(register1);
+                int base = parse_reg(register2);
+ 
+                long offset;
+                if (value[0] == '#') // skip
+                    value++;
+                if (value[0] == '\'') // a character
+                    offset = (unsigned char)value[1];
+                else
+                    offset = strtol(value, NULL, 0);  // 10, -5, 0x0a
+ 
+                if (offset < -32 || offset > 31) {
+                    fprintf(stderr, "line %d: offset %ld does not fit (-32 to 31)\n", line_number, offset);
+                    return 1;
+                }
+
+                // LDR/STR |  opcode   |  reg   |  base  |     offset6     |
+                ins = (parse_opcode(op) << 12) | (reg << 9) | (base << 6) | (offset & 0x3f);
+                break;
+            }
+            case BRR: {
+                // BRR p, R1, #-4     jump if r1 > 0
+                // BRR nz, R1, #3     jump if r1 < or = 0
+                // BRR nzp, R0, #2    always jump
+                char *flags = strtok(NULL, " ,\t\r\n");
+                char *registe = strtok(NULL, " ,\t\r\n");
+                char *value = strtok(NULL, " ,\t\r\n");
+ 
+                if (flags == NULL || registe == NULL || value == NULL) {
+                    fprintf(stderr, "line %d: usage: BRR nzp, reg, #offset\n", line_number);
+                    return 1;
+                }
+ 
+                int flagss = 0;
+                for (int i = 0; flags[i] != '\0'; i++) {
+                    if (flags[i] == 'n' || flags[i] == 'N') {
+                        flagss |= 4;
+                    } else if (flags[i] == 'z' || flags[i] == 'Z') {
+                        flagss |= 2;
+                    } else if (flags[i] == 'p' || flags[i] == 'P') {
+                        flagss |= 1;
+                    } else {
+                        printf("bad flags line %d", line_number);
+                        return -1;
+                    }
+                }
+ 
+                int reg = parse_reg(registe);
+ 
+                long offset;
+                if (value[0] == '#') // skip
+                    value++;
+                offset = strtol(value, NULL, 0);  // -4, 3, 0x0a
+ 
+                if (offset < -32 || offset > 31) {
+                    fprintf(stderr, "line %d: offset %ld does not fit (-32 to 31)\n", line_number, offset);
+                    return 1;
+                }
+ 
+                // BRR |  opcode   | flags  |  reg   |     offset6     |
+                ins = (BRR << 12) | (flagss << 9) | (reg << 6) | (offset & 0x3f);
+                break;
+            }
             case GLÖGG: {
                 char *number_text = strtok(NULL, " ,\t\r\n");
                 long glögg = strtol(number_text, NULL, 0);
@@ -191,8 +385,10 @@ int main(int argc, char **argv) {
             };
 
             fwrite(bytes, 1, 2, out);
+            address++;
         } else {
             printf("0x%04x,\n", ins);
+            address++;
         }
     }
 }

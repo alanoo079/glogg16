@@ -9,7 +9,7 @@
     LDR/STR         |  opcode   |  reg   |  base  |     offset6     |
     BRR             |  opcode   | flags  |  reg   |     offset6     |
     JMP             |  opcode   | 0  0  0|  base  | 0  0  0  0  0  0|
-    RET             |  opcode   | 0  0  0  0|        unused         |
+   
     SET             |  opcode   |  dest  |       (-256 to 255)      |
     GLÖGG           |  opcode   |glöggnumber|        unused         |
 
@@ -25,7 +25,7 @@
         8 LEA // done
         9 BRR // done
         10 JMP // done
-        11 RET // done
+        11 SHIFT
         12 SET // done
         13 BUSH
         14 BOP
@@ -61,9 +61,12 @@ enum {
     LEA,
     BRR,
     JMP,
-    RET,
+    SHIFT, // wip
     SET,
+    BUSH, // wip
+    BOP, // wip
     GLÖGG = 15,
+
     RGLÖGG = 7,
     RBASE = 6
 };
@@ -237,10 +240,6 @@ int main(int argc, char **argv) {
             case JMP: {
                 uint16_t base = get_bits(ins_reg, 8, 6);
                 pc = registers[base].value;
-                break;
-            }
-            case RET: {
-                pc = registers[RBASE].value;
                 break;
             }
             case SET: {

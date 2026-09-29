@@ -1,39 +1,22 @@
+; main
+LEA r1, #0x16
+LEA RBASE, #1
+BRR nzp, r0, #7
 SET RGLÖGG, #0x0a
+GLÖGG #1
+LEA r2, #3
+JMP r2
+SET RGLÖGG, #'X'
 GLÖGG 1
-SET RGLÖGG, #'I'
-GLÖGG 1
-SET RGLÖGG, #0x20
-GLÖGG 1
-SET RGLÖGG, #'L' ; test
-GLÖGG 1
-SET RGLÖGG, #'o'
-GLÖGG 1
-SET RGLÖGG, #'v'
-GLÖGG 1
-SET RGLÖGG, #'e'
-GLÖGG 1
-SET RGLÖGG, #0x20
-GLÖGG 1
-SET RGLÖGG, #'G'
-GLÖGG 1
-SET RGLÖGG, #'l'
-GLÖGG 1
-SET RGLÖGG, 0xc3
-GLÖGG 1
-SET RGLÖGG, 0xb6
-GLÖGG 1
-SET RGLÖGG, #'g'
-GLÖGG 1
-SET RGLÖGG, #'g'
-GLÖGG 1
-SET RGLÖGG, #0x0a
-GLÖGG 1
-SET RGLÖGG, #0x0a
-GLÖGG 1
-
-
-NOP
-ADD r1, r1, r2
-ADD r1, r1, #1
 GLÖGG 2
+
+; print_string func
+LDR RGLÖGG, r1, #0
+BRR z, RGLÖGG, #3
+GLÖGG 1
+ADD r1, r1, #1
+BRR nzp, RGLÖGG, #-5
 RET
+
+; data
+data 0x17: 0x0a, 'g', 'l', 0xc3, 0xb6, 'g', 'g', '1', '6', 0x0a, 0x0a
